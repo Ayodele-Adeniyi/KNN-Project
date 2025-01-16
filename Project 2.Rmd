@@ -1,0 +1,456 @@
+---
+title: ""  
+author: ""  
+date: "" 
+output: 
+  pdf_document: 
+    keep_tex: true
+header-includes:
+   - \usepackage{color}
+   - \usepackage{graphicx}
+---
+
+\begin{titlepage}
+    \centering
+    \vspace*{5cm} 
+    {\Huge \textbf{\color{black} Comparative Analysis of Predictive Models for Estimating PCIAT Scores: Linear Regression vs. K-Nearest Neighbors}\par}
+    \vspace{1cm}
+    {\LARGE \textbf{Ayodele Adeniyi}\par}
+    \vspace{0.5cm}
+    {\Large 2024-10-24 \par} 
+    \vfill 
+
+\end{titlepage}
+
+\newpage
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+\tableofcontents
+\newpage
+
+## Introduction
+
+Based on our understanding of your requirements, which is to estimate scores for children who took the Parent-Child Internet Addiction Test (PCIAT) based on features such as Sleep Distance Score, Internet use, Age, and Sex. This report examines whether linear regression or k-Nearest Neighbors provides the best predictive accuracy for estimating scores for children not present in this data set. The following sections outline the steps taken to achieve this objective. Section 1 presents the exploratory data analysis, introducing the model selection process. Given that this is a prediction task, linear regression and k-Nearest Neighbors are both suitable choices. This section also includes the linear regression model we developed, along with the assumptions of linear regression, which the dataset meets. In Section 1.2, we present the trained regression model, and Section 1.3 provides an evaluation of the model using Root Mean Squared Error (RMSE), derived via 10-fold cross-validation. Section 2 covers the use of k-Nearest Neighbors (KNN) as an alternative method to predict PCIAT scores based on the available features, testing values of K in the range of 3 to 51. Finally, Section 3 details our conclusions after comparing KNN and linear regression models. In this report: PCIAT refers to the Parent-Child Internet Addiction Test, SleepDistScore indicates how much a child’s sleep is disturbed on a typical night, InternetUse reflects the child’s typical daily internet usage hours, Age denotes the child’s age in years, and Sex indicates the child’s gender.
+
+## Section 1: Linear Regression
+
+This section will explore the predictive abilities of linear regression. Specifically, this section will contain a linear regression model using all possible features to predict the PCIAT score.
+
+### 1.1 Exploratory Data Analysis
+
+This section shows the exploratory data analysis of the data set. Before we proceed to fit a linear regression model on the PCIAT variable, we perform some exploratory data analysis of the response variable and features. We also check for missing variables within the data set.
+
+```{r}
+# Load in the Parent-Child Internet Addiction Test (PCIAT) data set 
+data <- read.csv("C:\\Users\\timot\\Documents\\School\\STA 663\\Project\\ChildMindData.csv", header = TRUE)
+
+# Load library pander
+library(pander)
+
+# Print the summary of 'data' with pander
+pander(summary(data[,c(1,4)]), caption = "Summary of Dataset")
+```
+
+From Table 1, it is noted that the age of the students ranged from 5 to 22, and the minimum SleepDistScore score is 38 with a maximum of 100. Examining the data set for the presence of missing variables revealed that there are no missing variables (see Figure 1.1). The black spaces, which would typically indicate missing data, are absent in the figure, confirming that the is data complete, and we can proceed to evaluate the relationship between the different features and the response variable.
+
+```{r}
+# Exploratory Data Analysis for Missing Variables
+# This section examines missing data in the dataset.
+# Load the 'visdat' package to visualize missing data.
+library(visdat)
+
+# Load library 'ggplot2' to plot scatter plots and charts which will be used in this report
+library(ggplot2)
+
+# Use the vis_miss in visdat to show areas that have missing data, missing data would be patches of grey lines.
+vis_miss(data) + labs(title = "Figure 1:1", caption = "Missing Data EDA")
+```
+
+The scatter plot represents the relationship between SleepDistScore (x-axis) and PCIAT Score (y-axis), as shown in Figure 1.2 below. The relationship between the two variables has a positive slope, implying that children who experience higher sleep disturbances tend to have higher PCIAT scores. The data points are distributed across a wide range of SleepDistScore values (ranging from 25 to 100), with corresponding PCIAT scores ranging from 0 up to 80. The scatter plot in Figure 1.3 shows a positive relationship between Age and PCIAT scores, suggesting that older children are more likely to exhibit compulsive internet use. However, there are a few outliers, where a small number of children have unusually high or low PCIAT scores compared to others of the same age. For instance, at age 20, there are points with much lower scores. The median PCIAT score increases as the category of internet use increases, as shown in Figure 1.4. The "Less_than_1H_daily" category has the lowest median score, while the "More_than_3H" category has the highest median, this suggests that increased internet use may be associated with increased compulsive behaviors. Outliers are present in almost all categories, represented by dots beyond the whiskers. The median PCIAT score for males is higher than the median PCIAT score for females, as shown in Figure 1.4. Outliers are present in both categories, represented by dots beyond the whiskers. This suggests that in both groups, there are individuals who exhibit unusually high PCIAT scores compared to others of the same sex. The number of outliers for females is slightly higher compared to males.
+
+```{r}
+# This section examines the scatter plots of features vs response
+# Load package 'gridextra' to arrange scatterplots in rows and columns
+library(gridExtra)
+
+# First graph for SleepDistScore
+g1<- ggplot(data, aes(x= SleepDistScore, y = PCIAT)) + geom_point(col = 'blue', alpha = 0.5)+
+  labs(title = "Figure 1.2:", x = "SleepDistScore", y = "PCIAT", caption =
+         "A scatter plot of SleepDistScore vs PCIAT") + stat_smooth(method = "lm", formula = y ~ x, se = FALSE) 
+
+# Second graph for InternetUse
+g2 <- ggplot(data, aes(x= factor(InternetUse, levels = c(0:3), labels = c("<1H", "1H", "2H", ">3H")), y = PCIAT)) + geom_boxplot(fill = 'lightblue', color = 'black')+
+  labs(title = "Figure 1.4:", x = "InternetUse", y = "PCIAT", caption =
+         "A scatter plot of InternetUse versus PCIAT") + stat_smooth(method = "lm", formula = y ~ x, se = FALSE) 
+
+# Third graph for Age
+g3<- ggplot(data, aes(x= Age, y = PCIAT)) + geom_point(col = 'blue', alpha = 0.5)+
+  labs(title = "Figure 1.3:", x = "Age", y = "PCIAT", caption =
+         "A scatter plot of Age vs PCIAT") + stat_smooth(method = "lm", formula = y ~ x, se = FALSE) 
+
+# Fourth graph for sex
+g4 <- ggplot(data, aes(x = factor(Sex, levels = c(0, 1), labels = c("Male", "Female")), y = PCIAT)) + geom_boxplot(fill = 'lightblue', color = 'black')+
+  labs(title = "Figure 1.5:", x = "Sex", y = "PCIAT", caption =
+         "A scatter plot of Sex versus PCIAT") + stat_smooth(method = "lm", formula = y ~ x, se = FALSE)
+```
+
+```{r fig.width=12, fig.height=14}
+grid.arrange(g1, g3, g2, g4, ncol = 2, nrow = 2)
+```
+
+### 1.2 Least Squared Linear Regression Model
+
+In this section, we proceed to fit a linear regression model to the data set, using all possible features to predict the PCIAT score. The general model for linear regression is given by:
+
+$$y = \beta_0 + \beta_1 X + \beta_2 X + \beta_3 X + \beta_4 X + \epsilon.0, \epsilon \overset{\text{i.i.d.}}{\sim} N(0, \sigma) $$ 
+
+where \( y \) is the response variable, and \( \beta_0 \) through \( \beta_5 \) are the coefficients for each predictor variable \( X_1 \) to \( X_5 \).
+We assume the following assumptions have been satisfied: We assume that the relationship between Y and X is linear. We assume that the errors $\epsilon_i$ are normally distributed with mean 0 and some constant variance $\sigma$. We assume that the errors are independent. We assume that Y is a random variable. We then estimate all necessary parameters and other model components required for accurate predictions.
+
+```{r}
+# This section creates the linear regression model
+full_model <- lm(PCIAT ~ ., data = data)
+```
+
+Training the model:
+
+$$ PCIAT_i = \beta_0 + \beta_1 Age_i + \beta_2 Sex_i + \beta_3 SleepDistScore_i + \beta_4InternetUse_i + \epsilon_i, \epsilon_i \overset{\text{iid}}{\sim} N(0, \sigma) $$
+
+Here, PCIAT is Parent-Child Internet Addiction Test Score, SleepDistScore is a numeric measure of how much the child’s sleep is disturbed on a typical night, InternetUse is a score indicating how many hours a day the child typically spends on the Internet, Age is the age of the child in years and Sex is indicator for the sex of the child. 0 = male, 1 = female.
+
+The Trained (Fitted) Model is given by:
+
+$$ \widehat{PCIAT_i} = -6.8438 + 1.6117Age_i + -4.6467Sex_i + 0.3382 SleepDistScore_i + 3.5285  InternetUse_i $$
+
+From the model above, the intercept is $-6.84$, the intercept suggests a negative baseline PCIAT score when all features are zero. The p-value of the intercept (0.000569) is less than 0.05, indicating that the intercept is statistically significant in predicting PCIAT scores. Age has a positive coefficient of 1.62, meaning that for every 1-year increase in age, the PCIAT score on average increases by approximately 1.62 points, implying that older children are more likely to have higher levels of internet addiction. Furthermore, the p-value for Age ($2 \times e^{-16}$) is less than 0.05, indicating that Age is statistically significant. Sex has a negative coefficient of 4.65, meaning that females have, on average, 4.65 points lower PCIAT scores compared to males. Additionally, the p-value for Sex ($2.31\times e^{-10}$) is less than 0.05, indicating that Sex is statistically significant. SleepDistScore has a positive relationship with PCIAT of 0.34; for every 1-point increase in SleepDistScore, the PCIAT score on average increases by approximately 0.34 points, suggesting that poorer sleep quality is linked to higher levels of internet addiction. The p-value for SleepDistScore ($2 \times e^{-16}$) is also less than 0.05, indicating that this predictor is significant. InternetUse also shows a positive relationship with PCIAT; for every 1-level increase in InternetUse (i.e., moving from a lower category of internet use to a higher one), the PCIAT score on average increases by approximately 3.53 points, suggesting that increased internet usage is associated with higher levels of compulsive behavior. The p-value for InternetUse ($2\times e^{-16}$) is less than 0.05, indicating that this predictor is statistically significant. The R-squared value of the model is 0.232, meaning that the model above explains 23.2% of the variation in PCIAT scores. All the predictors have very p-values less than 0.05 showing that each feature included in the model significantly contributes to predicting PCIAT scores.
+
+```{r}
+# This section creates a table with the coefficients and statistical significance columns. 
+# Load 'knitr' package to format tables
+library(knitr)
+
+# Create a new data set without the response variable to display the coeffiecients 
+dataminusy <- data[,-3]
+
+# Create vector 'd1' that contains the row headers
+d1 <- c("Intercept", colnames(dataminusy))
+
+# Create vector 'd2' that contains column headers
+d2 <- c("Coeffients", "P_value", "Statistical Significance")
+
+# Create vector 'd3' that contains the values
+d3 <- c("-6.8438", "1.6117", "-4.6467", "0.3382", "3.5285", "0.000569", "$2 \\times e^-16$", "$2.31 \\times e^-10$", "$2 \\times e^-16$", "$2 \\times e^-16$", "Significant", "Significant", "Significant", "Significant", "Significant")
+
+# Create a matrix with d1 as column names and d3 as the values
+d3_matrix <- matrix(d3, nrow = length(d1), byrow = FALSE)
+
+# Create data frame from the matrix
+df <- data.frame(d3_matrix)  
+
+# Set column names
+colnames(df) <- d2  
+
+# Add row name
+rownames(df) <- d1
+
+kable(df)
+```
+
+### 1.3 10 -fold CV
+
+In this section, we will discuss how well the model would be able to predict the PCIAT score for a new child who had not yet taken the test, specifically. In order to assess the predictive abilities of the linear model, $10$-fold Cross Validation will be used. The reason for selecting this model can be explained by the need to have two sets of data (the training data set and test data set). Having two different data sets is very important in predictive modeling, as we use the training data set to conduct EDA, choose and build our models, and we use the testing (test) data set to evaluate how well our model can perform predictions. There are various techniques for creating test data when test data is not available. Three commonly used methods of splitting the data set into a fraction for training and another fraction for testing are: splitting the data into training and validation data, Leave-One-Out Cross Validation (LOOCV), and $k$-fold Cross Validation. The reason the latter two are preferred over the first method is that splitting the data into training and validation data involves creating validation data from the single data set we have. This can be done by taking some of the rows from the training set and putting them in a separate data set, which is then declared as validation data. This technique has several drawbacks, such as reducing our sample size and making the results highly dependent on which rows of the training data end up in the training and validation sets. Given these challenges, we consider other methods, specifically $k$-fold Cross Validation. The $k$-fold Cross Validation creates a validation data that does not depend on a process of separating in to two large subsets and does not result in a reduction in the size of our training data set. In this method, we create $k$ validation sets, where each of the $k$ validation sets is called a fold. We create these folds by randomly dividing the data into $k$ groups of approximately equal size. We start by treating fold 1 as the new validation set and the remaining $k-1$ folds as the new training data, and then repeat the process with the remaining folds. For this analysis, our choice of $k = 10$ is based on studies that have shown this tends to provide validation RMSE values that are neither highly biased nor have excessively large variance.
+
+
+```{r}
+# This section computes RMSE
+compute_RMSE <- function(truth, predictions){
+
+  # Part 1
+  part1 <- truth - predictions
+  
+  #Part 2
+  part2 <- part1^2
+  
+  #Part 3: RSS 
+  part3 <- sum(part2)
+  
+  #Part4: MSE
+  part4 <- 1/length(predictions)*part3
+  
+  # Part 5:RMSE
+  sqrt(part4)
+}
+```
+
+```{r}
+# Code chunk to run 10-fold CV 
+# Set a seed for replicability 
+set.seed(363663)
+
+# Define n as the count of rows in the dataset
+nrow <-  nrow(data)
+
+# Step 1: Create the identifiers
+repstep <- rep(1:10, 218)
+
+# Step 2: Assign students to folds
+foldP <- sample(repstep, nrow, replace = FALSE)
+
+# Step 3: Create storage space
+PredictionP <- data.frame("PCIATcap", rep(NA, nrow))
+
+# Create the loop
+for (i in 1:10){
+  
+  # Step 4: Find the Data in Fold i
+  foldnum = which(foldP == i)
+  
+  # Step 5: Create training data set
+  trainP <- data[-foldnum, ]
+  
+  # Step 6: Create Validation data set
+  ValidationP <- data[foldnum, ]
+  
+  # Step 7: Train the model on the new training data
+  modelP <- lm(PCIAT ~ ., data = trainP)
+  
+  # Step 8: Make predictions for the validation data
+  InferP <- predict(modelP, newdata = ValidationP)
+  
+  # Step 9: Store the model values for fold i
+  PredictionP[foldnum, "PCIATcap"] <- InferP
+}
+
+  #Compute RMSE
+LRMSE <- round(compute_RMSE(data[, "PCIAT"], PredictionP[, "PCIATcap"]),4)
+```
+
+The Root Mean Squared Error (RMSE) is a measure of the average magnitude of the error between the predicted values and the actual observed values. Lower RMSE values indicate a better fit of the model to the data. The mathematical expression for the RMSE is given below:
+
+$$
+\text{RMSE} = \sqrt{\frac{1}{n_{test}} \sum_{i^* = 1}^{n_{{test}}} \left( y_{i^*} - \hat{y}_{i^*} \right)^2}
+$$
+
+where \( y \) represents the true values of the response variable, and \( \hat{y} \) denotes the predicted values.
+
+Examining the predictive abilities of the model using 10-fold Cross Validation yields a Root Mean Square Error (RMSE) of `r LRMSE`. This value means that, on average, our predictions for happiness were off by approximately $\pm$ `r LRMSE`. We proceed to examine the relationship between the model predictions and the true PCIAT scores. This relationship can be viewed in a scatter plot with the true PCIAT score on the x-axis and the cross-validated predicted PCIAT score on the y-axis. See Figure 1.6 below for more details. The red dots indicate where the model overestimated the PCIAT score, red points are prevalent in the left and center areas of the plot, indicating that the model tends to overestimate in this range of PCIAT values (i.e., from 0 to 25), while blue points are more prevalent in the right part of the plot, showing that the model tends to underestimate scores when PCIAT values are greater than around 25.
+
+```{r}
+# This section creates a scatter plot of actual vs. predicted values
+# Create a new dataset
+newdata <- data
+
+# Add the predicted values to the new data set as a column and include all columns in data
+newdata <- data.frame(PredictionP[, "PCIATcap"], data[,])
+
+# Set the column names
+colnames(newdata) <- c("PCIATcap","Age", "Sex", "PCIAT", "SleepDistScore", "InternetUse")
+
+# Create a vector that shows if predicted is greater or less than the actual response values
+colorvec2 <- ifelse( newdata$PCIATcap > newdata$PCIAT, "red", "blue")
+color_counts <- table(colorvec2)
+
+# Plot the actual vs predicted
+ggplot(newdata, aes(x=PCIAT, y = PCIATcap)) + geom_point(color=colorvec2)+ labs(title = "Figure :1.6", x = "PCIAT", y = "K- fold PCIAT predicted", caption = "A scatter plot of True Price vs K-fold Predicted Price")+ geom_abline()
+```
+
+## Section 2: KNN
+
+In this section, we will consider K-nearest neighbors as a second approach to estimate scores for children who took the Parent-Child Internet Addiction Test (PCIAT). K-nearest neighbors (KNN) is a predictive algorithm. Unlike a regression model, it does not require parameters or a mathematical equation to define it, making it a more flexible approach than regression. KNN looks at all rows in the training data set and finds the K rows that are most similar to a given row in the test data. To obtain the predicted PCIAT score for a row in the test set, KNN averages the PCIAT scores for these K rows in the training data.
+
+KNN has three steps for every row in the test data:
+
+-   Step 1: Compute distance measures to determine how similar the row in the test data set is to all rows in the training data set. The disstance measure we would utilize for this analysis is the Euclidean Distance.
+
+-   Step 2: Find the K = K rows in the training data set that are closest (in terms of the chosen distance measure) to the row in the test set. These are called the three nearest neighbors in the training data to the test row.
+
+-   Step 3: Make a prediction for Y for the row in the test set using the average value of Y for its K = K nearest neighbors.
+
+Choosing a value like K, which we get to set in order to optimize a certain measure, is called tuning. Because of this, K is called a tuning parameter. For this analysis, you have communicated that K values between 3 and 51 should be considered. It should be noted, however, that for large data sets we typically use $k = \sqrt{n}$, while for smaller data sets, we explore a range of options. The various Root Mean Squared Errors for the different levels of K are given in Table 3 below:
+
+```{r}
+# This section creates a 10 fold-KNN
+library(caret)
+n <- nrow(data)
+
+#Creating the 10 fold
+createset <- rep(1:10, 218)
+
+set.seed(363663)
+#Sampling from the tickets
+createfold <- sample(createset, n, replace = FALSE)
+
+# Creating storage space
+KNNpredictionsP <- data.frame("KKN_PCIATcap" = rep(NA, n))
+KKNRMSETable <- data.frame("KNN" = 3:51, "KNN_RMSE" = rep(NA, 49))
+
+for (J in 3:51){
+for (i in 1:10){
+
+  # Set fold = i
+  foldid <- which(createfold == i)
+  
+  # Create training and validation
+  train1 <- data[-foldid, ]
+  test1 <- data[foldid, ]
+  
+  # Use 10-NN to make predictions
+  results <- knnreg(train1[,-3] , train1[,3], k = J)
+  
+  # The code we need to make predictions
+  knnPred <- predict(results, newdata = test1[,-3])
+  
+  # Store the output
+  KNNpredictionsP[foldid, "KKN_PCIATcap"] <- knnPred
+}
+  RMSE <- round(compute_RMSE(data[, "PCIAT"], KNNpredictionsP[, "KKN_PCIATcap"]), 4)
+  KKNRMSETable[J-2, "KNN_RMSE"] <- RMSE
+}
+KNN_value <- KKNRMSETable$KNN[which.min(KKNRMSETable$KNN_RMSE)]
+```
+
+```{r}
+# This section creates a KNN table with RMSE and KNN columns
+kable(KKNRMSETable, 
+      col.names = c("K Value (KNN)", "Root Mean Square Error (RMSE)"),
+      caption = "KNN RMSE Table: Showing the RMSE for different values of K")
+```
+
+
+
+```{r}
+# Demo chunk to compute RMSE for KNN with K > 51
+library(caret)
+library(lattice)
+n <- nrow(data)
+
+#Creating the 10 fold
+createset <- rep(1:10, 218)
+
+set.seed(363663)
+#Sampling from the tickets
+createfold <- sample(createset, n, replace = FALSE)
+
+# Creating storage space
+KNNpredictionsT <- data.frame("KKN_PCIATcap" = rep(NA, n))
+KKNRMSETableT <- data.frame("KNN" = 52:100, "KNN_RMSE" = rep(NA, 49))
+
+for (J in 52:100){
+for (i in 1:10){
+
+  # Set fold = i
+  foldid <- which(createfold == i)
+  
+  # Create training and validation
+  trainT <- data[-foldid, ]
+  testT <- data[foldid, ]
+  
+  # Use 10-NN to make predictions
+  resultsT <- knnreg(trainT[,-3] , trainT[,3], k = J)
+  
+  # The code we need to make predictions
+  knnPredT <- predict(resultsT, newdata = testT[,-3])
+  
+  # Store the output
+  KNNpredictionsT[foldid, "KKN_PCIATcap"] <- knnPredT
+}
+  RMSET <- round(compute_RMSE(data[, "PCIAT"], KNNpredictionsT[, "KKN_PCIATcap"]), 4)
+  KKNRMSETableT[J-51, "KNN_RMSE"] <- RMSET
+}
+
+# Create a variable to hold the KNN with least RMSE
+KNN_valueT <- KKNRMSETableT$KNN[which.min(KKNRMSETableT$KNN_RMSE)]
+```
+From the table above, the RMSE generally decreases as the K value increases from 3 to `r KNN_value`. The lowest RMSE in the table and our range of K values between 3 and 51 is `r min(KKNRMSETable$KNN_RMSE)` at K = `r KNN_value`. Further increases in the value of K to K \> `r KNN_value`, i.e., K = `r KNN_value + 1` may yield an increase in the RMSE, additional analysis was performed for K values between 52 and 100, it was observed that the K with the least MSE is k = `r KNN_valueT`, with RMSE `r min(KKNRMSETableT$KNN_RMSE)`. This suggests that the optimal K value is between 3 and 51, this is `r KNN_value`, as it minimizes the error with an RMSE of `r min(KKNRMSETable$KNN_RMSE)`.
+
+To address a specific question, you mentioned that k = $\sqrt{n}$ is a default choice for K in KNN. However, I would like to clarify that k = $\sqrt{n}$ is recommended for large data sets, while for smaller data sets, we explore a range of options. In this case, we examined K values ranging from 3 to 51, and the optimal K was found within this range, furthermore, the value of $\sqrt{n} = \sqrt{2180} \approx 47$. The corresponding RMSE for K = 47 is `r KKNRMSETable[45, "KNN_RMSE"]`, which is still higher than the RMSE for K = `r KNN_value`. Figure 2.1 below shows the comparison between PCIAT (actual scores) and KKN_PCIATcap (predicted scores using the K-Nearest Neighbors model). The red points indicate instances where the predicted value (KKN_PCIATcap) is greater than the actual value (PCIAT), suggesting that the model overestimated the scores in these cases. The blue points indicate instances where the actual value (PCIAT) is greater than the predicted value (KKN_PCIATcap). Red points are prevalent in the left and central area of the plot, indicating that the model tends to overestimate in this range of PCIAT values (i.e., from 0 to 25), while blue points are more prevalent in the right part of the plot, showing that the model tends to underestimate scores when PCIAT values are greater than around 25.
+
+```{r}
+
+# This section extracts the predicted values for our optimal K = 51
+n <- nrow(data)
+
+#Creating the 10 fold
+createset <- rep(1:10, 218)
+
+set.seed(363663)
+#Sampling from the tickets
+createfold <- sample(createset, n, replace = FALSE)
+
+# Creating storage space for our predictions
+KNNpredictions51 <- data.frame("KKN_PCIATcap" = rep(NA, n))
+
+for (i in 1:10){
+
+  # Set fold = i
+  foldid <- which(createfold == i)
+  
+  # Create training and validation
+  train51 <- data[-foldid, ]
+  test51 <- data[foldid, ]
+  
+  # Use 10-NN to make predictions
+  results51 <- knnreg(train51[,-3] , train51[,3], k = 51)
+  
+  # The code we need to make predictions
+  knnPred51 <- predict(results51, newdata = test51[,-3])
+  
+  # Store the output
+  KNNpredictions51[foldid, "KKN_PCIATcap"] <- knnPred51
+}
+  RMSE51 <- round(compute_RMSE(data[, "PCIAT"], KNNpredictions51[, "KKN_PCIATcap"]), 4)
+
+```
+
+```{r}
+# This section creates a scatter plot of actual vs predicted for KNN
+# Create a new data set
+newdata2 <- data
+
+# Add the predicted values to the new data set as a column and include all columns in data
+newdata2 <- data.frame(KNNpredictions51[, "KKN_PCIATcap"], data[,])
+
+# Set the column names
+colnames(newdata2) <- c("KKN_PCIATcap","Age", "Sex", "PCIAT", "SleepDistScore", "InternetUse")
+
+# Create a vector that shows if predicted is greater or less than the actual response values
+colorvec <- ifelse( newdata2$KKN_PCIATcap > newdata2$PCIAT, "red", "blue")
+
+# Plot the actual vs predicted
+ggplot(newdata2, aes(x=PCIAT, y = KKN_PCIATcap)) + 
+  geom_point(color=colorvec)+ labs(title = "Figure 2.1:", x = "PCIAT", y = "KNN PCIAT predicted", caption = "A scatter plot of True Price vs KNN Predicted Price") + geom_abline()
+```
+
+## Section 3: Conclusion
+
+The objective of this study is to determine the most effective predictive model for estimating scores on the Parent-Child Internet Addiction Test (PCIAT) based on features such as: Sleep Distance Score, Internet use, Age, and Sex. We considered two models: linear regression and K-Nearest Neighbors (KNN). Linear Regression model first employed as it offered the advantage of being easy to interpret and it highlights the statistical significance of each predictor. All predictors (Age, Sex, SleepDistScore, and InternetUse) were statistically significant as $\alpha$ = 0.05. The KNN model was optimal at a K = 51, achieving an RMSE of `r RMSE51`. In conclusion, the analysis reveals that the Linear Regression model outperforms the K-Nearest Neighbors (KNN) model in the prediction of PCIAT scores, achieving the lower RMSE of `r LRMSE`. The results indicate that, on average, the predicted Parent-Child Internet Addiction Test (PCIAT) scores are approximately `r LRMSE` away from the true values. However, given the range of PCIAT scores (`r min(data$PCIAT)` to `r max(data$PCIAT)`) and the model's Adjusted R-squared of 23.2%, the Linear Regression model captures only a limited portion of the variance in PCIAT scores. These results suggest that while Linear Regression offers better predictive accuracy between the two models being compared even after considering additional values of K. I would recommend the use of Linear regression, I would also recommend exploring other regression methods and machine learning algorithms for improved predictive performance.
+
+\newpage
+
+## Appendix
+
+Appendix I: Linear Regression Coefficients
+
+```{r}
+library(broom)
+tidy_model <- tidy(full_model)
+knitr::kable(tidy_model)
+
+```
+\newpage
+
+Appendix II: RMSE for KNN with k > 51
+
+```{r}
+# This section creates a KNN table with RMSE and KNN columns
+kable(KKNRMSETableT, 
+      col.names = c("K Value (KNN)", "Root Mean Square Error (RMSE)"),
+      caption = "KNN RMSE Table: Showing the RMSE for K > 51")
+```
+
+
+
