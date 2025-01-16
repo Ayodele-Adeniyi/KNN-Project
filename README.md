@@ -1,1 +1,1 @@
-# KNN-
+The objective of this study is to determine the most effective predictive model for estimating scores on the Parent-Child Internet Addiction Test (PCIAT) based on features such as: Sleep Distance Score, Internet use, Age, and Sex.
