@@ -1,13 +1,15 @@
 ---
-title: ""  
-author: ""  
-date: "" 
-output: 
-  pdf_document: 
+title: ''
+author: ''
+date: ''
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
     keep_tex: true
 header-includes:
-   - \usepackage{color}
-   - \usepackage{graphicx}
+- \usepackage{color}
+- \usepackage{graphicx}
 ---
 
 \begin{titlepage}
@@ -46,7 +48,8 @@ This section shows the exploratory data analysis of the data set. Before we proc
 
 ```{r}
 # Load in the Parent-Child Internet Addiction Test (PCIAT) data set 
-data <- read.csv("C:\\Users\\timot\\Documents\\School\\STA 663\\Project\\ChildMindData.csv", header = TRUE)
+data <- read.csv("C:\\Users\\timot\\OneDrive\\Documentos\\Projects\\KNN-\\ChildMindData.csv", header = TRUE)
+
 
 # Load library pander
 library(pander)
